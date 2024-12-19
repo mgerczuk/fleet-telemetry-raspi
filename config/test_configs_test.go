@@ -8,14 +8,16 @@ const TestConfig = `{
 	"json_log_enable": true,
 	"namespace": "tesla_telemetry",
 	"reliable_ack_sources": {
-		"V": "kafka"
+		"V": "mqtt"
 	},
-	"kafka": {
-		"bootstrap.servers": "some.broker1:9093,some.broker1:9093",
-		"ssl.ca.location": "kafka.ca",
-		"ssl.certificate.location": "kafka.crt",
-		"ssl.key.location": "kafka.key",
-		"queue.buffering.max.messages": 1000000
+	"mqtt": {
+		"broker": "mqtt:1883",
+		"client_id": "client-1",
+		"topic_base": "telemetry",
+		"qos": 1,
+		"retained": false,
+		"connect_timeout_ms": 30000,
+		"publish_timeout_ms": 1000 
 	},
 	"monitoring": {
 		"prometheus_metrics_port": 9090,
@@ -28,7 +30,7 @@ const TestConfig = `{
 		"message_limit": 1000
 	},
 	"records": {
-		"V": ["kafka"]
+		"V": ["mqtt"]
 	},
 	"tls": {
 		"ca_file": "tesla.ca",
@@ -44,15 +46,17 @@ const TestSmallConfig = `
 	"port": 443,
 	"status_port": 8080,
 	"namespace": "tesla_telemetry",
-	"kafka": {
-		"bootstrap.servers": "some.broker1:9093,some.broker1:9093",
-		"ssl.ca.location": "kafka.ca",
-		"ssl.certificate.location": "kafka.crt",
-		"ssl.key.location": "kafka.key",
-		"queue.buffering.max.messages": 1000000
+	"mqtt": {
+		"broker": "mqtt:1883",
+		"client_id": "client-1",
+		"topic_base": "telemetry",
+		"qos": 1,
+		"retained": false,
+		"connect_timeout_ms": 30000,
+		"publish_timeout_ms": 1000
 	},
 	"records": {
-		"V": ["kafka"]
+		"V": ["mqtt"]
 	},
 	"tls": {
 		"ca_file": "tesla.ca",

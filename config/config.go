@@ -15,11 +15,9 @@ import (
 	"cloud.google.com/go/pubsub"
 	githubairbrake "github.com/airbrake/gobrake/v5"
 
-	confluent "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	githublogrus "github.com/sirupsen/logrus"
 
 	"github.com/teslamotors/fleet-telemetry/datastore/googlepubsub"
-	"github.com/teslamotors/fleet-telemetry/datastore/kafka"
 	"github.com/teslamotors/fleet-telemetry/datastore/kinesis"
 	"github.com/teslamotors/fleet-telemetry/datastore/mqtt"
 	"github.com/teslamotors/fleet-telemetry/datastore/simple"
@@ -56,11 +54,6 @@ type Config struct {
 
 	// ReliableAckSources is a mapping of record types to a dispatcher that will be used for reliable ack
 	ReliableAckSources map[string]telemetry.Dispatcher `json:"reliable_ack_sources,omitempty"`
-
-	// Kafka is a configuration for the standard librdkafka configuration properties
-	// seen here: https://raw.githubusercontent.com/confluentinc/librdkafka/master/CONFIGURATION.md
-	// we extract the "topic" key as the default topic for the producer
-	Kafka *confluent.ConfigMap `json:"kafka,omitempty"`
 
 	// Kinesis is a configuration for AWS Kinesis
 	Kinesis *Kinesis `json:"kinesis,omitempty"`
@@ -269,18 +262,6 @@ func (c *Config) ConfigureProducers(airbrakeHandler *airbrake.Handler, logger *l
 		}
 	}
 
-	if _, ok := requiredDispatchers[telemetry.Kafka]; ok {
-		if c.Kafka == nil {
-			return nil, nil, errors.New("expected Kafka to be configured")
-		}
-		convertKafkaConfig(c.Kafka)
-		kafkaProducer, err := kafka.NewProducer(c.Kafka, c.Namespace, c.prometheusEnabled(), c.MetricCollector, airbrakeHandler, c.AckChan, reliableAckSources[telemetry.Kafka], logger)
-		if err != nil {
-			return nil, nil, err
-		}
-		producers[telemetry.Kafka] = kafkaProducer
-	}
-
 	if _, ok := requiredDispatchers[telemetry.Pubsub]; ok {
 		if c.Pubsub == nil {
 			return nil, nil, errors.New("expected Pubsub to be configured")
@@ -384,16 +365,6 @@ func parseValidDispatchers(input []telemetry.Dispatcher) []telemetry.Dispatcher 
 		}
 	}
 	return result
-}
-
-// convertKafkaConfig will prioritize int over float
-// see: https://github.com/confluentinc/confluent-kafka-go/blob/cde2827bc49655eca0f9ce3fc1cda13cb6cdabc9/kafka/config.go#L108-L125
-func convertKafkaConfig(input *confluent.ConfigMap) {
-	for key, val := range *input {
-		if i, ok := val.(float64); ok {
-			(*input)[key] = int(i)
-		}
-	}
 }
 
 // CreateKinesisStreamMapping uses the config, overrides with ENV variable names, and finally falls back to namespace based names

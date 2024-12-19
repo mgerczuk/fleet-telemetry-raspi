@@ -13,8 +13,6 @@ const (
 	// Pubsub registers a Google pubsub dispatcher
 	Pubsub Dispatcher = "pubsub"
 	// Kafka registers a kafka dispatcher
-	Kafka Dispatcher = "kafka"
-	// Kinesis registers a kinesis publisher
 	Kinesis Dispatcher = "kinesis"
 	// Logger registers a simple logger
 	Logger Dispatcher = "logger"

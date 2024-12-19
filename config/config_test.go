@@ -7,9 +7,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	confluent "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	githublogrus "github.com/sirupsen/logrus"
 
+	"github.com/teslamotors/fleet-telemetry/datastore/mqtt"
 	logrus "github.com/teslamotors/fleet-telemetry/logger"
 	"github.com/teslamotors/fleet-telemetry/metrics"
 	"github.com/teslamotors/fleet-telemetry/server/airbrake"
@@ -33,16 +33,19 @@ var _ = Describe("Test full application config", func() {
 			Namespace:  "tesla_telemetry",
 			TLS:        &TLS{CAFile: "tesla.ca", ServerCert: "your_own_cert.crt", ServerKey: "your_own_key.key"},
 			RateLimit:  &RateLimit{Enabled: true, MessageLimit: 1000, MessageInterval: 30},
-			Kafka: &confluent.ConfigMap{
-				"bootstrap.servers":        "some.broker:9093",
-				"ssl.ca.location":          "kafka.ca",
-				"ssl.certificate.location": "kafka.crt",
-				"ssl.key.location":         "kafka.key",
+			MQTT: &mqtt.Config{
+				Broker:         "mqtt:1883",
+				ClientID:       "client-1",
+				TopicBase:      "telemetry",
+				QoS:            1,
+				Retained:       false,
+				ConnectTimeout: 30000,
+				PublishTimeout: 1000,
 			},
 			Monitoring:    &metrics.MonitoringConfig{PrometheusMetricsPort: 9090, ProfilerPort: 4269, ProfilingPath: "/tmp/fleet-telemetry/profile/"},
 			LogLevel:      "info",
 			JSONLogEnable: true,
-			Records:       map[string][]telemetry.Dispatcher{"V": {"kafka"}},
+			Records:       map[string][]telemetry.Dispatcher{"V": {"mqtt"}},
 		}
 	})
 
@@ -125,21 +128,6 @@ var _ = Describe("Test full application config", func() {
 			config, err := loadTestApplicationConfig(TestTransmitDecodedRecords)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config.TransmitDecodedRecords).To(BeTrue())
-		})
-	})
-
-	Context("configure kafka", func() {
-		It("converts floats to int", func() {
-			config, err := loadTestApplicationConfig(TestSmallConfig)
-			Expect(err).NotTo(HaveOccurred())
-
-			_, producers, err = config.ConfigureProducers(airbrake.NewAirbrakeHandler(nil), log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(producers["V"]).To(HaveLen(1))
-
-			value, err := config.Kafka.Get("queue.buffering.max.messages", 10)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(value.(int)).To(Equal(1000000))
 		})
 	})
 
