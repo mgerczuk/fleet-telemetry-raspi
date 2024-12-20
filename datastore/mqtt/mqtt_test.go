@@ -186,6 +186,8 @@ var _ = Describe("MQTTProducer", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
+			createdAt := timestamppb.Now()
+
 			payload := &protos.Payload{
 				Vin: "TEST123",
 				Data: []*protos.Datum{
@@ -219,7 +221,7 @@ var _ = Describe("MQTTProducer", func() {
 						},
 					},
 				},
-				CreatedAt: timestamppb.Now(),
+				CreatedAt: createdAt,
 			}
 
 			payloadBytes, err := proto.Marshal(payload)
@@ -241,26 +243,37 @@ var _ = Describe("MQTTProducer", func() {
 
 			producer.Produce(record)
 
-			Expect(publishedTopics).To(HaveLen(4))
+			Expect(publishedTopics).To(HaveLen(1))
 
-			vehicleNameTopic := "test/topic/TEST123/v/VehicleName"
-			invalidTopic := "test/topic/TEST123/v/TimeToFullCharge"
-			locationTopic := "test/topic/TEST123/v/Location"
-			batteryLevelTopic := "test/topic/TEST123/v/BatteryLevel"
+			topic := "test/topic/TEST123/v"
 
-			vehicleNameValue := "\"My Tesla\""
-			invalidValue := "null"
-			locationValue := "{\"latitude\":37.7749,\"longitude\":-122.4194}"
-			batterLevelValue := "75.5"
+			jsonValue, _ := json.Marshal(map[string]interface{}{
+				"created_at": createdAt.AsTime(),
+				"vin":        "TEST123",
+				"data": []mqtt.Datum{
+					{
+						Key:   "VehicleName",
+						Value: "My Tesla",
+					},
+					{
+						Key: "TimeToFullCharge",
+					},
+					{
+						Key: "Location",
+						Value: map[string]interface{}{
+							"latitude":  37.7749,
+							"longitude": -122.4194,
+						},
+					},
+					{
+						Key:   "BatteryLevel",
+						Value: 75.5,
+					},
+				},
+			})
 
-			Expect(publishedTopics).To(HaveKey(vehicleNameTopic))
-			Expect(publishedTopics).To(HaveKey(invalidTopic))
-			Expect(publishedTopics).To(HaveKey(locationTopic))
-			Expect(publishedTopics).To(HaveKey(batteryLevelTopic))
-			Expect(publishedTopics[vehicleNameTopic]).To(Equal([]byte(vehicleNameValue)))
-			Expect(publishedTopics[invalidTopic]).To(Equal([]byte(invalidValue)))
-			Expect(publishedTopics[locationTopic]).To(Equal([]byte(locationValue)))
-			Expect(publishedTopics[batteryLevelTopic]).To(Equal([]byte(batterLevelValue)))
+			Expect(publishedTopics).To(HaveKey(topic))
+			Expect(publishedTopics[topic]).To(Equal(jsonValue))
 		})
 
 		It("should publish MQTT messages for vehicle alerts", func() {
@@ -277,23 +290,24 @@ var _ = Describe("MQTTProducer", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
+			createdAt := timestamppb.Now()
 			alerts := &protos.VehicleAlerts{
 				Vin: "TEST123",
 				Alerts: []*protos.VehicleAlert{
 					{
 						Name:      "TestAlert1",
-						StartedAt: timestamppb.Now(),
+						StartedAt: createdAt,
 						EndedAt:   nil,
 						Audiences: []protos.Audience{protos.Audience_Customer, protos.Audience_Service},
 					},
 					{
 						Name:      "TestAlert2",
-						StartedAt: timestamppb.Now(),
-						EndedAt:   timestamppb.Now(),
+						StartedAt: createdAt,
+						EndedAt:   createdAt,
 						Audiences: []protos.Audience{protos.Audience_ServiceFix},
 					},
 				},
-				CreatedAt: timestamppb.Now(),
+				CreatedAt: createdAt,
 			}
 
 			alertsBytes, err := proto.Marshal(alerts)
@@ -315,35 +329,37 @@ var _ = Describe("MQTTProducer", func() {
 
 			producer.Produce(record)
 
-			Expect(publishedTopics).To(HaveLen(4))
+			Expect(publishedTopics).To(HaveLen(1))
 
-			alert1CurrentTopic := "test/topic/TEST123/alerts/TestAlert1/current"
-			alert1HistoryTopic := "test/topic/TEST123/alerts/TestAlert1/history"
-			alert2CurrentTopic := "test/topic/TEST123/alerts/TestAlert2/current"
-			alert2HistoryTopic := "test/topic/TEST123/alerts/TestAlert2/history"
+			topic := "test/topic/TEST123/alerts"
 
-			Expect(publishedTopics).To(HaveKey(alert1CurrentTopic))
-			Expect(publishedTopics).To(HaveKey(alert1HistoryTopic))
-			Expect(publishedTopics).To(HaveKey(alert2CurrentTopic))
-			Expect(publishedTopics).To(HaveKey(alert2HistoryTopic))
+			createdAtAsTime := createdAt.AsTime()
 
-			var alert1Current, alert2Current map[string]interface{}
-			var alert1History, alert2History []map[string]interface{}
-			json.Unmarshal(publishedTopics[alert1CurrentTopic], &alert1Current)
-			json.Unmarshal(publishedTopics[alert1HistoryTopic], &alert1History)
-			json.Unmarshal(publishedTopics[alert2CurrentTopic], &alert2Current)
-			json.Unmarshal(publishedTopics[alert2HistoryTopic], &alert2History)
+			jsonValue, _ := json.Marshal(map[string]interface{}{
+				"alerts": []mqtt.VehicleAlert{
+					{
+						Name: "TestAlert1",
+						Audiences: []protos.Audience{
+							1,
+							2,
+						},
+						StartedAt: &createdAtAsTime,
+					},
+					{
+						Name: "TestAlert2",
+						Audiences: []protos.Audience{
+							3,
+						},
+						StartedAt: &createdAtAsTime,
+						EndedAt:   &createdAtAsTime,
+					},
+				},
+				"created_at": createdAtAsTime,
+				"vin":        "TEST123",
+			})
 
-			Expect(alert1Current).To(HaveKey("StartedAt"))
-			Expect(alert1Current).NotTo(HaveKey("EndedAt"))
-			Expect(alert1Current["Audiences"]).To(ConsistOf("Customer", "Service"))
-
-			Expect(alert2Current).To(HaveKey("StartedAt"))
-			Expect(alert2Current).To(HaveKey("EndedAt"))
-			Expect(alert2Current["Audiences"]).To(ConsistOf("ServiceFix"))
-
-			Expect(alert1History).To(BeAssignableToTypeOf([]map[string]interface{}{}))
-			Expect(alert2History).To(BeAssignableToTypeOf([]map[string]interface{}{}))
+			Expect(publishedTopics).To(HaveKey(topic))
+			Expect(publishedTopics[topic]).To(Equal(jsonValue))
 		})
 
 		It("should publish MQTT messages for vehicle errors", func() {
@@ -359,6 +375,7 @@ var _ = Describe("MQTTProducer", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
+			createdAt := timestamppb.Now()
 			vehicleErrors := &protos.VehicleErrors{
 				Vin: "TEST123",
 				Errors: []*protos.VehicleError{
@@ -366,16 +383,16 @@ var _ = Describe("MQTTProducer", func() {
 						Name:      "TestError1",
 						Body:      "This is a test error",
 						Tags:      map[string]string{"tag1": "value1", "tag2": "value2"},
-						CreatedAt: timestamppb.Now(),
+						CreatedAt: createdAt,
 					},
 					{
 						Name:      "TestError2",
 						Body:      "This is another test error",
 						Tags:      map[string]string{"tagA": "valueA"},
-						CreatedAt: timestamppb.Now(),
+						CreatedAt: createdAt,
 					},
 				},
-				CreatedAt: timestamppb.Now(),
+				CreatedAt: createdAt,
 			}
 
 			errorsBytes, err := proto.Marshal(vehicleErrors)
@@ -396,28 +413,96 @@ var _ = Describe("MQTTProducer", func() {
 
 			producer.Produce(record)
 
-			Expect(publishedTopics).To(HaveLen(2))
+			Expect(publishedTopics).To(HaveLen(1))
 
-			error1Topic := "test/topic/TEST123/errors/TestError1"
-			error2Topic := "test/topic/TEST123/errors/TestError2"
+			topic := "test/topic/TEST123/errors"
 
-			Expect(publishedTopics).To(HaveKey(error1Topic))
-			Expect(publishedTopics).To(HaveKey(error2Topic))
+			createdAtAsTime := createdAt.AsTime()
 
-			var error1, error2 map[string]interface{}
-			json.Unmarshal(publishedTopics[error1Topic], &error1)
-			json.Unmarshal(publishedTopics[error2Topic], &error2)
+			jsonValue, _ := json.Marshal(map[string]interface{}{
+				"created_at": createdAtAsTime,
+				"errors": []mqtt.VehicleError{
+					{
+						Body:      "This is a test error",
+						CreatedAt: &createdAtAsTime,
+						Name:      "TestError1",
+						Tags: map[string]string{
+							"tag1": "value1",
+							"tag2": "value2",
+						},
+					},
+					{
+						Body:      "This is another test error",
+						CreatedAt: &createdAtAsTime,
+						Name:      "TestError2",
+						Tags: map[string]string{
+							"tagA": "valueA",
+						},
+					},
+				},
+				"vin": "TEST123",
+			})
 
-			Expect(error1).To(HaveKey("Body"))
-			Expect(error1["Body"]).To(Equal("This is a test error"))
-			Expect(error1["Tags"]).To(HaveKeyWithValue("tag1", "value1"))
-			Expect(error1["Tags"]).To(HaveKeyWithValue("tag2", "value2"))
-			Expect(error1).To(HaveKey("CreatedAt"))
+			Expect(publishedTopics).To(HaveKey(topic))
+			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+		})
 
-			Expect(error2).To(HaveKey("Body"))
-			Expect(error2["Body"]).To(Equal("This is another test error"))
-			Expect(error2["Tags"]).To(HaveKeyWithValue("tagA", "valueA"))
-			Expect(error2).To(HaveKey("CreatedAt"))
+		It("should publish MQTT messages for vehicle connectivity", func() {
+			producer, err := mqtt.NewProducer(
+				context.Background(),
+				mockConfig,
+				mockCollector,
+				"test_namespace",
+				nil,
+				nil,
+				nil,
+				mockLogger,
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			createdAt := timestamppb.Now()
+			connectivity := &protos.VehicleConnectivity{
+				Vin:              "TEST123",
+				ConnectionId:     "connid",
+				Status:           protos.ConnectivityEvent_DISCONNECTED,
+				CreatedAt:        createdAt,
+				NetworkInterface: "xyz",
+			}
+
+			errorsBytes, err := proto.Marshal(connectivity)
+			Expect(err).NotTo(HaveOccurred())
+
+			message := messages.StreamMessage{
+				TXID:         []byte("1234"),
+				SenderID:     []byte("vehicle_device.TEST123"),
+				MessageTopic: []byte("connectivity"),
+				Payload:      errorsBytes,
+			}
+			msgBytes, err := message.ToBytes()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create record properly using NewRecord
+			record, err := telemetry.NewRecord(serializer, msgBytes, "1", true)
+			Expect(err).NotTo(HaveOccurred())
+
+			producer.Produce(record)
+
+			Expect(publishedTopics).To(HaveLen(1))
+
+			topic := "test/topic/TEST123/connectivity"
+
+			createdAtAsTime := createdAt.AsTime()
+
+			jsonValue, _ := json.Marshal(map[string]interface{}{
+				"connection_id":     "connid",
+				"created_at":        createdAtAsTime,
+				"network_interface": "xyz",
+				"status":            "DISCONNECTED",
+				"vin":               "TEST123",
+			})
+
+			Expect(publishedTopics).To(HaveKey(topic))
+			Expect(publishedTopics[topic]).To(Equal(jsonValue))
 		})
 
 		It("should handle timeouts when publishing MQTT messages", func() {
