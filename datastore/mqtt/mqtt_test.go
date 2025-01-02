@@ -252,22 +252,30 @@ var _ = Describe("MQTTProducer", func() {
 				"vin":        "TEST123",
 				"data": []mqtt.Datum{
 					{
-						Key:   "VehicleName",
-						Value: "My Tesla",
+						Key: "VehicleName",
+						Value: map[string]interface{}{
+							"StringValue": "My Tesla",
+						},
 					},
 					{
 						Key: "TimeToFullCharge",
+						Value: map[string]interface{}{
+							"Invalid": true,
+						},
 					},
 					{
 						Key: "Location",
 						Value: map[string]interface{}{
-							"latitude":  37.7749,
-							"longitude": -122.4194,
-						},
+							"LocationValue": map[string]interface{}{
+								"latitude":  37.7749,
+								"longitude": -122.4194,
+							}},
 					},
 					{
-						Key:   "BatteryLevel",
-						Value: 75.5,
+						Key: "BatteryLevel",
+						Value: map[string]interface{}{
+							"FloatValue": 75.5,
+						},
 					},
 				},
 			})
