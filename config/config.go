@@ -83,7 +83,10 @@ type Config struct {
 	Records map[string][]telemetry.Dispatcher `json:"records,omitempty"`
 
 	// TransmitDecodedRecords if true decodes proto message before dispatching it to supported datastores
+	// when vehicle configuration has prefer_typed set to true, enum fields will have a prefix
 	TransmitDecodedRecords bool `json:"transmit_decoded_records,omitempty"`
+
+	VinsSignalTrackingEnabled []string `json:"vins_signal_tracking_enabled"`
 
 	// MetricCollector collects metrics for the application
 	MetricCollector metrics.MetricCollector
@@ -184,6 +187,18 @@ func (c *Config) AirbrakeTLSConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+// VinsToTrack to track incoming signals in promemetheus
+func (c *Config) VinsToTrack() map[string]struct{} {
+	output := make(map[string]struct{}, 0)
+	if len(c.VinsSignalTrackingEnabled) == 0 {
+		return output
+	}
+	for _, vin := range c.VinsSignalTrackingEnabled {
+		output[vin] = struct{}{}
+	}
+	return output
+}
+
 // ExtractServiceTLSConfig return the TLS config needed for stating the mTLS Server
 func (c *Config) ExtractServiceTLSConfig(logger *logrus.Logger) (*tls.Config, error) {
 	if c.TLS == nil {
@@ -246,7 +261,8 @@ func (c *Config) prometheusEnabled() bool {
 }
 
 // ConfigureProducers validates and establishes connections to the producers (kafka/pubsub/logger)
-func (c *Config) ConfigureProducers(airbrakeHandler *airbrake.Handler, logger *logrus.Logger) (map[telemetry.Dispatcher]telemetry.Producer, map[string][]telemetry.Producer, error) {
+func (c *Config) ConfigureProducers(airbrakeHandler *airbrake.Handler, logger *logrus.Logger, test bool) (map[telemetry.Dispatcher]telemetry.Producer, map[string][]telemetry.Producer, error) {
+	var pubsubTxTypes []string
 	reliableAckSources, err := c.configureReliableAckSources()
 	if err != nil {
 		return nil, nil, err
@@ -302,7 +318,7 @@ func (c *Config) ConfigureProducers(airbrakeHandler *airbrake.Handler, logger *l
 
 	if _, ok := requiredDispatchers[telemetry.MQTT]; ok {
 		if c.MQTT == nil {
-			return nil, nil, errors.New("Expected MQTT to be configured")
+			return nil, nil, errors.New("expected MQTT to be configured")
 		}
 		mqttProducer, err := mqtt.NewProducer(context.Background(), c.MQTT, c.MetricCollector, c.Namespace, airbrakeHandler, c.AckChan, reliableAckSources[telemetry.MQTT], logger)
 		if err != nil {
@@ -315,12 +331,26 @@ func (c *Config) ConfigureProducers(airbrakeHandler *airbrake.Handler, logger *l
 	for recordName, dispatchRules := range c.Records {
 		var dispatchFuncs []telemetry.Producer
 		for _, dispatchRule := range dispatchRules {
+			if dispatchRule == telemetry.Pubsub {
+				pubsubTxTypes = append(pubsubTxTypes, recordName)
+			}
 			dispatchFuncs = append(dispatchFuncs, producers[dispatchRule])
 		}
 		dispatchProducerRules[recordName] = dispatchFuncs
 
 		if len(dispatchProducerRules[recordName]) == 0 {
 			return nil, nil, fmt.Errorf("unknown_dispatch_rule record: %v, dispatchRule:%v", recordName, dispatchRules)
+		}
+	}
+
+	if !test && len(pubsubTxTypes) > 0 {
+		if err := producers[telemetry.Pubsub].(*googlepubsub.Producer).ProvisionTopics(pubsubTxTypes); err != nil {
+			return nil, nil, err
+		}
+	}
+	if !test && producers[telemetry.MQTT] != nil {
+		if err := producers[telemetry.MQTT].(*mqtt.Producer).Connect(); err != nil {
+			return nil, nil, err
 		}
 	}
 

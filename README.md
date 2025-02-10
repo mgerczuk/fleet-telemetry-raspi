@@ -31,7 +31,7 @@ By configuring `fleet_telemetry_config`, individual owners and fleet operators c
       - `port`: The port the fleet-telemetry server -- Default 443.
       - `ca`: The full certificate chain used to generate the server's TLS certificate.
     - Run `./check_server_cert.sh validate_server.json`
-9. Ensure the application's virtual key has been added to the vehicle(s). See documentation here: https://developer.tesla.com/docs/fleet-api/endpoints/vehicle-commands#key-pairing.
+9. Pair the application's virtual key to the vehicle(s). See documentation here: https://developer.tesla.com/docs/fleet-api/virtual-keys/developer-guide.
 10. Configure and run the [vehicle-command proxy](https://github.com/teslamotors/vehicle-command#installation-and-configuration) with the application private key.
 11. Configure vehicle(s) with the [fleet_telemetry_config](https://developer.tesla.com/docs/fleet-api/endpoints/vehicle-endpoints#fleet-telemetry-config-create) endpoint.
 12. Wait for `synced` to be true when getting [fleet_telemetry_config](https://developer.tesla.com/docs/fleet-api/endpoints/vehicle-endpoints#fleet-telemetry-config-get).
@@ -56,6 +56,7 @@ For ease of installation and operation, run Fleet Telemetry on Kubernetes or a s
   "json_log_enable": bool,
   "namespace": string - kafka topic prefix,
   "reliable_ack": bool - for use with reliable datastores, recommend setting to true with kafka,
+  "transmit_decoded_records": bool - if true, transmit JSON to dispatchers instead of proto.
   "monitoring": {
     "prometheus_metrics_port": int,
     "profiler_port": int,
@@ -150,12 +151,13 @@ Vehicles must be running firmware version 2023.20.6 or later.  Some older model 
 ## Personalized Backends/Dispatchers
 Dispatchers handle vehicle data processing upon its arrival at Fleet Telemetry servers. They can be of any type, from distributed message queues to  STDOUT logger.  Here is a list of the currently supported [dispatchers](./telemetry/producer.go#L10-L19)::
 * Kafka (preferred): Configure with the config.json file.  See implementation here: [config/config.go](./config/config.go)
-  * Topics will need to be created for \*prefix\*`_V`,\*prefix\*`_connectivity`, \*prefix\*`_alerts`, and \*prefix\*`_errors`. The default prefix is `tesla`
+  * Topics will need to be created for \*prefix\*`_V`,\*prefix\*`_connectivity` and \*prefix\*`_alerts`. The default prefix is `tesla`
 * Kinesis: Configure with standard [AWS env variables and config files](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html). The default AWS credentials and config files are: `~/.aws/credentials` and `~/.aws/config`.
-  * By default, stream names will be \*configured namespace\*_\*topic_name\*  ex.: `tesla_V`, `tesla_errors`, `tesla_alerts`, etc
+  * By default, stream names will be \*configured namespace\*_\*topic_name\*  ex.: `tesla_V`, `tesla_alerts`, etc
   * Configure stream names directly by setting the streams config `"kinesis": { "streams": { *topic_name*: stream_name } }`
   * Override stream names with env variables: KINESIS_STREAM_\*uppercase topic\* ex.: `KINESIS_STREAM_V`
 * Google pubsub: Along with the required pubsub config (See ./test/integration/config.json for example), be sure to set the environment variable `GOOGLE_APPLICATION_CREDENTIALS`
+  * On startup, the server will attempt to create missing topics and panic on failure.
 * ZMQ: Configure with the config.json file.  See implementation here: [config/config.go](./config/config.go)
 * MQTT: Configure using the config.json file. See implementation in [config/config.go](./config/config.go)
   * See detailed MQTT information in the [MQTT README](./datastore/mqtt/README.md)
@@ -176,6 +178,9 @@ On the vehicle, Fleet Telemetry client behave similarly to how the connectivity 
         ]
       }
   ```
+
+## Tracking incoming signals
+If you have metrics enabled, you can use it to track count of incoming signals. This can help you identify approximate billing for your service. There are two ways to track signals. By default, it tracks signals per record_type (\*prefix\*`V` and \*prefix\*`alerts`). If you wish to track signals for a subset of VINs, you can add `vins_signal_tracking_enabled` in the config file which will track metrics for usage from those particular vins as well. 
 
 ## Metrics
 Configure and use Prometheus or a StatsD-interface supporting data store for metrics. The integration test runs Fleet Telemetry with [grafana](https://grafana.com/docs/grafana/latest/datasources/google-cloud-monitoring/), which is compatible with prometheus. It also has an example dashboard which tracks important metrics related to the hosted server. Sample screenshot for the [sample dashboard](./test/integration/grafana/provisioning/dashboards/dashboard.json):-

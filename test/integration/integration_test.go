@@ -57,11 +57,11 @@ var _ = Describe("Test messages", Ordered, func() {
 		pubsubConsumer  *TestConsumer
 		kinesisConsumer *TestKinesisConsumer
 		// kafkaConsumer   *kafka.Consumer
-		zmqConsumer  *TestZMQConsumer
+		zmqConsumer     *TestZMQConsumer
 		mqttConsumer *TestMQTTConsumer
-		tlsConfig    *tls.Config
-		timestamp    *timestamppb.Timestamp
-		logger       *logrus.Logger
+		tlsConfig       *tls.Config
+		timestamp       *timestamppb.Timestamp
+		logger          *logrus.Logger
 	)
 
 	BeforeAll(func() {

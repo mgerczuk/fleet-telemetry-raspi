@@ -105,7 +105,7 @@ func resetPublishedTopics() {
 	publishedTopics = make(map[string][]byte)
 }
 
-func mockPahoNewClient(o *pahomqtt.ClientOptions) pahomqtt.Client {
+func mockPahoNewClient(_ *pahomqtt.ClientOptions) pahomqtt.Client {
 	return &MockMQTTClient{
 
 		ConnectFunc: func() pahomqtt.Token {
@@ -117,10 +117,10 @@ func mockPahoNewClient(o *pahomqtt.ClientOptions) pahomqtt.Client {
 		IsConnectedFunc: func() bool {
 			return true
 		},
-		PublishFunc: func(topic string, qos byte, retained bool, payload interface{}) pahomqtt.Token {
+		PublishFunc: func(topic string, _ byte, _ bool, payload interface{}) pahomqtt.Token {
 			publishedTopics[topic] = payload.([]byte)
 			return &MockToken{
-				WaitTimeoutFunc: func(d time.Duration) bool { return true },
+				WaitTimeoutFunc: func(_ time.Duration) bool { return true },
 				WaitFunc:        func() bool { return true },
 				ErrorFunc:       func() error { return nil },
 			}
