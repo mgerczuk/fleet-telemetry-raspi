@@ -2,6 +2,148 @@
 [![Current Version](https://img.shields.io/github/v/tag/teslamotors/fleet-telemetry?label=latest%20tag)](https://github.com/teslamotors/fleet-telemetry/tags)
 [![DockerHub Tags](https://img.shields.io/docker/v/tesla/fleet-telemetry?label=docker%20tags)](https://hub.docker.com/r/tesla/fleet-telemetry/tags)
 
+# Tesla Fleet Telemetry For Raspberry Pi (This Fork)
+---------------------------------
+
+This fork of fleet-telemetry is supposed to run on a Raspberry Pi. The main differences to the official Tesla version are:
+
+- remove Kafka support. This does not compile on 32 bit Raspbian OS
+- add MQTT
+
+## Prerequisites ##
+
+Install go and necessary libraries (*TODO: check if complete...*):
+
+```
+sudo apt install golang libzmq3-dev
+```
+
+Clone this Git repository
+
+```
+git clone https://github.com/mgerczuk/fleet-telemetry-raspi.git
+```
+
+## Build ##
+
+Resolve Go dependencies and build executable
+
+```
+cd fleet-telemetry-raspi
+go get ./...
+cd cmd
+go build
+```
+
+This may take some time. The result is an executable file `cmd`
+
+## Install ##
+
+The easiest way to install the server is to create a Systemd service. First create a file `/etc/systemd/system/fleet-telemetry.service`.
+
+This example file assumes that you have Let's Encrypt create a HTTPS certificate/key pair in folder `/etc/letsencrypt/live/my-domain.com`. If you have other sources of certificate/key change the right side of the ':' in the `LoadCredential` lines accordingly.
+
+```
+[Unit]
+Description=Tesla Fleet Telemetry Server
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/fleet-telemetry -config /etc/fleet-telemetry/config.json
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=fleet-telemetry
+LoadCredential=privkey.pem:/etc/letsencrypt/live/my-domain.com/privkey.pem
+LoadCredential=fullchain.pem:/etc/letsencrypt/live/my-domain.com/fullchain.pem
+
+DynamicUser=yes
+CapabilityBoundingSet=
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+PrivateUsers=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=yes
+SystemCallFilter=~@clock @debug @module @mount @obsolete @privileged @raw-io @reboot @resources @swap
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Copy the executable file to /usr/bin `sudo cp cmd /usr/bin/fleet-telemetry`
+
+Finally you need a configuration file `/etc/fleet-telemetry/config.json` similar to the one below:
+
+```
+{
+  "host": "",
+  "port": 8443,
+  "log_level": "info",
+  "logger": {
+    "verbose": true
+  },
+  "mqtt": {
+    "broker": "my-mqtt-broker:1883",
+    "client_id": "client-1",
+    "topic_base": "telemetry",
+    "qos": 1,
+    "retained": false,
+    "connect_timeout_ms": 30000,
+    "publish_timeout_ms": 1000
+  },
+  "records": {
+    "alerts": ["mqtt"],
+    "errors": ["mqtt"],
+    "V": ["mqtt"],
+    "connectivity": ["mqtt"]
+  },
+  "tls": {
+    "server_cert": "/run/credentials/fleet-telemetry.service/fullchain.pem",
+    "server_key": "/run/credentials/fleet-telemetry.service/privkey.pem"
+  }
+}
+```
+
+Change `my-mqtt-broker` to your MQTT broker.
+
+Now register and start the service with
+
+```
+sudo systemctl daemon-reload
+sudo systemctl start fleet-telemetry.service
+```
+
+Check with `sudo systemctl start fleet-telemetry.service` if the service runs properly. It should show something like
+
+```
+Jan 03 10:05:23 raspberry systemd[1]: Started fleet-telemetry.service - Tesla Fleet Telemetry Server.
+Jan 03 10:05:24 raspberry fleet-telemetry[5315]: 2025/01/03 10:05:24 maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined
+Jan 03 10:05:24 raspberry fleet-telemetry[5315]: time="2025-01-03T10:05:24+01:00" level=info msg=config_skipping_empty_metrics_provider activity=true context=fleet-telemetry
+Jan 03 10:05:24 raspberry fleet-telemetry[5315]: time="2025-01-03T10:05:24+01:00" level=info msg=starting_server activity=true context=fleet-telemetry
+```
+
+With `sudo systemctl enable fleet-telemetry.service` you make the service start automatically with every boot.
+
+*TODO: In case of Let's Encrypt or similar service the fleet-telemetry service must be restarted when the certificate/key is renewed!*
+
+**Don't forget to open a port in your internet router and forward it to port 8443 on your Raspi!**
+
+A simple configuration tool for sending fleet telemetry configuration to the vehicle is available at https://github.com/mgerczuk/fleet-telemetry-config
+
+Original Tesla README follows:
+
+
 # Tesla Fleet Telemetry
 ---------------------------------
 
