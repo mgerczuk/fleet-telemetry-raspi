@@ -10,7 +10,7 @@ import (
 	"github.com/teslamotors/fleet-telemetry/telemetry"
 )
 
-func (p *MQTTProducer) process(rec *telemetry.Record, topLevel string, obj any) ([]pahomqtt.Token, error) {
+func (p *Producer) process(rec *telemetry.Record, topLevel string, obj any) ([]pahomqtt.Token, error) {
 	mqttTopicName := fmt.Sprintf("%s/%s/%s", p.config.TopicBase, rec.Vin, topLevel)
 	jsonValue, err := json.Marshal(obj)
 	if err != nil {
@@ -20,17 +20,23 @@ func (p *MQTTProducer) process(rec *telemetry.Record, topLevel string, obj any) 
 	return []pahomqtt.Token{p.client.Publish(mqttTopicName, p.config.QoS, p.config.Retained, jsonValue)}, nil
 }
 
-func (p *MQTTProducer) processVehicleFields(rec *telemetry.Record, payload *protos.Payload) ([]pahomqtt.Token, error) {
-	return p.process(rec, //
-		"v", //
-		map[string]interface{}{
-			"created_at": payload.CreatedAt.AsTime(),
-			"vin":        payload.Vin,
-			"data":       p.dataToMqtt(payload.Data),
-		})
+func (p *Producer) processVehicleFields(rec *telemetry.Record, payload *protos.Payload) ([]pahomqtt.Token, error) {
+	var tokens []pahomqtt.Token
+	convertedPayload := p.payloadToMap(payload)
+	for key, value := range convertedPayload {
+		mqttTopicName := fmt.Sprintf("%s/%s/v/%s", p.config.TopicBase, rec.Vin, key)
+		jsonValue, err := json.Marshal(value)
+		if err != nil {
+			return tokens, fmt.Errorf("failed to marshal JSON for MQTT topic %s: %v", mqttTopicName, err)
+		}
+		token := p.client.Publish(mqttTopicName, p.config.QoS, p.config.Retained, jsonValue)
+		tokens = append(tokens, token)
+		p.updateMetrics(rec.TxType, len(jsonValue))
+	}
+	return tokens, nil
 }
 
-func (p *MQTTProducer) processVehicleAlerts(rec *telemetry.Record, payload *protos.VehicleAlerts) ([]pahomqtt.Token, error) {
+func (p *Producer) processVehicleAlerts(rec *telemetry.Record, payload *protos.VehicleAlerts) ([]pahomqtt.Token, error) {
 	return p.process(rec, //
 		"alerts", //
 		map[string]interface{}{
@@ -40,7 +46,7 @@ func (p *MQTTProducer) processVehicleAlerts(rec *telemetry.Record, payload *prot
 		})
 }
 
-func (p *MQTTProducer) processVehicleErrors(rec *telemetry.Record, payload *protos.VehicleErrors) ([]pahomqtt.Token, error) {
+func (p *Producer) processVehicleErrors(rec *telemetry.Record, payload *protos.VehicleErrors) ([]pahomqtt.Token, error) {
 	return p.process(rec, //
 		"errors", //
 		map[string]interface{}{
@@ -50,7 +56,7 @@ func (p *MQTTProducer) processVehicleErrors(rec *telemetry.Record, payload *prot
 		})
 }
 
-func (p *MQTTProducer) processVehicleConnectivity(rec *telemetry.Record, payload *protos.VehicleConnectivity) ([]pahomqtt.Token, error) {
+func (p *Producer) processVehicleConnectivity(rec *telemetry.Record, payload *protos.VehicleConnectivity) ([]pahomqtt.Token, error) {
 	return p.process(rec, //
 		"connectivity", //
 		map[string]interface{}{
@@ -112,11 +118,14 @@ type Datum struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func (p *MQTTProducer) dataToMqtt(data []*protos.Datum) []Datum {
-	result := make([]Datum, len(data))
-	for i, d := range data {
-		result[i].Key = d.Key.String()
-		result[i].Value = d.Value.Value
+// PayloadToMap transforms a Payload into a map for mqtt purposes
+func (p *Producer) payloadToMap(payload *protos.Payload) map[string]interface{} {
+	convertedPayload := make(map[string]interface{}, len(payload.Data))
+	for _, datum := range payload.Data {
+		convertedPayload[datum.Key.String()] = map[string]interface{}{
+			"created_at": payload.CreatedAt.AsTime(),
+			"value":      datum.Value.Value,
+		}
 	}
-	return result
+	return convertedPayload
 }

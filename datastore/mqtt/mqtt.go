@@ -14,7 +14,7 @@ import (
 	"github.com/teslamotors/fleet-telemetry/telemetry"
 )
 
-type MQTTProducer struct {
+type Producer struct {
 	client             pahomqtt.Client
 	config             *Config
 	logger             *logrus.Logger
@@ -102,7 +102,7 @@ func NewProducer(ctx context.Context, config *Config, metrics metrics.MetricColl
 	client := PahoNewClient(opts)
 	client.Connect()
 
-	return &MQTTProducer{
+	return &Producer{
 		client:             client,
 		config:             config,
 		logger:             logger,
@@ -114,7 +114,7 @@ func NewProducer(ctx context.Context, config *Config, metrics metrics.MetricColl
 	}, nil
 }
 
-func (p *MQTTProducer) Produce(rec *telemetry.Record) {
+func (p *Producer) Produce(rec *telemetry.Record) {
 	if p.ctx.Err() != nil {
 		return
 	}
@@ -182,12 +182,12 @@ func waitTokenTimeout(t pahomqtt.Token, d time.Duration) error {
 	return t.Error()
 }
 
-func (p *MQTTProducer) updateMetrics(txType string, byteCount int) {
+func (p *Producer) updateMetrics(txType string, byteCount int) {
 	metricsRegistry.byteTotal.Add(int64(byteCount), map[string]string{"record_type": txType})
 	metricsRegistry.publishCount.Inc(map[string]string{"record_type": txType})
 }
 
-func (p *MQTTProducer) createLogInfo(rec *telemetry.Record) logrus.LogInfo {
+func (p *Producer) createLogInfo(rec *telemetry.Record) logrus.LogInfo {
 	logInfo := logrus.LogInfo{
 		"topic_name": telemetry.BuildTopicName(p.namespace, rec.TxType),
 		"txid":       rec.Txid,
@@ -196,7 +196,7 @@ func (p *MQTTProducer) createLogInfo(rec *telemetry.Record) logrus.LogInfo {
 	return logInfo
 }
 
-func (p *MQTTProducer) ProcessReliableAck(entry *telemetry.Record) {
+func (p *Producer) ProcessReliableAck(entry *telemetry.Record) {
 	_, ok := p.reliableAckTxTypes[entry.TxType]
 	if ok {
 		p.ackChan <- entry
@@ -204,12 +204,12 @@ func (p *MQTTProducer) ProcessReliableAck(entry *telemetry.Record) {
 	}
 }
 
-func (p *MQTTProducer) ReportError(message string, err error, logInfo logrus.LogInfo) {
+func (p *Producer) ReportError(message string, err error, logInfo logrus.LogInfo) {
 	p.airbrakeHandler.ReportLogMessage(logrus.ERROR, message, err, logInfo)
 	p.logger.ErrorLog(message, err, logInfo)
 }
 
-func (p *MQTTProducer) Close() error {
+func (p *Producer) Close() error {
 	p.client.Disconnect(uint(p.config.DisconnectTimeout))
 	return nil
 }

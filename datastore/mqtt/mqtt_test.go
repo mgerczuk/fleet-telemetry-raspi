@@ -243,40 +243,48 @@ var _ = Describe("MQTTProducer", func() {
 
 			producer.Produce(record)
 
-			Expect(publishedTopics).To(HaveLen(1))
+			Expect(publishedTopics).To(HaveLen(4))
 
-			topic := "test/topic/TEST123/v"
-
+			topic := "test/topic/TEST123/v/VehicleName"
 			jsonValue, _ := json.Marshal(map[string]interface{}{
 				"created_at": createdAt.AsTime(),
-				"vin":        "TEST123",
-				"data": []mqtt.Datum{
-					{
-						Key: "VehicleName",
-						Value: map[string]interface{}{
-							"StringValue": "My Tesla",
-						},
-					},
-					{
-						Key: "TimeToFullCharge",
-						Value: map[string]interface{}{
-							"Invalid": true,
-						},
-					},
-					{
-						Key: "Location",
-						Value: map[string]interface{}{
-							"LocationValue": map[string]interface{}{
-								"latitude":  37.7749,
-								"longitude": -122.4194,
-							}},
-					},
-					{
-						Key: "BatteryLevel",
-						Value: map[string]interface{}{
-							"FloatValue": 75.5,
-						},
-					},
+				"value": map[string]interface{}{
+					"StringValue": "My Tesla",
+				},
+			})
+
+			Expect(publishedTopics).To(HaveKey(topic))
+			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+
+			topic = "test/topic/TEST123/v/TimeToFullCharge"
+			jsonValue, _ = json.Marshal(map[string]interface{}{
+				"created_at": createdAt.AsTime(),
+				"value": map[string]interface{}{
+					"Invalid": true,
+				},
+			})
+
+			Expect(publishedTopics).To(HaveKey(topic))
+			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+
+			topic = "test/topic/TEST123/v/Location"
+			jsonValue, _ = json.Marshal(map[string]interface{}{
+				"created_at": createdAt.AsTime(),
+				"value": map[string]interface{}{
+					"LocationValue": map[string]interface{}{
+						"latitude":  37.7749,
+						"longitude": -122.4194,
+					}},
+			})
+
+			Expect(publishedTopics).To(HaveKey(topic))
+			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+
+			topic = "test/topic/TEST123/v/BatteryLevel"
+			jsonValue, _ = json.Marshal(map[string]interface{}{
+				"created_at": createdAt.AsTime(),
+				"value": map[string]interface{}{
+					"FloatValue": 75.5,
 				},
 			})
 
