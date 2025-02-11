@@ -38,7 +38,7 @@ var _ = Describe("Test full application config", func() {
 				ClientID:       "client-1",
 				TopicBase:      "telemetry",
 				QoS:            1,
-				Retained:       false,
+				Retained:       []string{},
 				ConnectTimeout: 30000,
 				PublishTimeout: 1000,
 			},

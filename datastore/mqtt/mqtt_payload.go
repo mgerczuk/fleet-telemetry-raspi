@@ -3,6 +3,7 @@ package mqtt
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -10,14 +11,14 @@ import (
 	"github.com/teslamotors/fleet-telemetry/telemetry"
 )
 
-func (p *Producer) process(rec *telemetry.Record, topLevel string, obj any) ([]pahomqtt.Token, error) {
+func (p *Producer) process(rec *telemetry.Record, topLevel string, retain bool, obj any) ([]pahomqtt.Token, error) {
 	mqttTopicName := fmt.Sprintf("%s/%s/%s", p.config.TopicBase, rec.Vin, topLevel)
 	jsonValue, err := json.Marshal(obj)
 	if err != nil {
 		return []pahomqtt.Token{}, fmt.Errorf("failed to marshal JSON for MQTT topic %s: %v", mqttTopicName, err)
 	}
 	p.updateMetrics(rec.TxType, len(jsonValue))
-	return []pahomqtt.Token{p.client.Publish(mqttTopicName, p.config.QoS, p.config.Retained, jsonValue)}, nil
+	return []pahomqtt.Token{p.client.Publish(mqttTopicName, p.config.QoS, retain, jsonValue)}, nil
 }
 
 func (p *Producer) processVehicleFields(rec *telemetry.Record, payload *protos.Payload) ([]pahomqtt.Token, error) {
@@ -29,7 +30,7 @@ func (p *Producer) processVehicleFields(rec *telemetry.Record, payload *protos.P
 		if err != nil {
 			return tokens, fmt.Errorf("failed to marshal JSON for MQTT topic %s: %v", mqttTopicName, err)
 		}
-		token := p.client.Publish(mqttTopicName, p.config.QoS, p.config.Retained, jsonValue)
+		token := p.client.Publish(mqttTopicName, p.config.QoS, slices.Contains(p.config.Retained, key), jsonValue)
 		tokens = append(tokens, token)
 		p.updateMetrics(rec.TxType, len(jsonValue))
 	}
@@ -39,6 +40,7 @@ func (p *Producer) processVehicleFields(rec *telemetry.Record, payload *protos.P
 func (p *Producer) processVehicleAlerts(rec *telemetry.Record, payload *protos.VehicleAlerts) ([]pahomqtt.Token, error) {
 	return p.process(rec, //
 		"alerts", //
+		false,
 		map[string]interface{}{
 			"created_at": payload.CreatedAt.AsTime(),
 			"vin":        payload.Vin,
@@ -49,6 +51,7 @@ func (p *Producer) processVehicleAlerts(rec *telemetry.Record, payload *protos.V
 func (p *Producer) processVehicleErrors(rec *telemetry.Record, payload *protos.VehicleErrors) ([]pahomqtt.Token, error) {
 	return p.process(rec, //
 		"errors", //
+		false,
 		map[string]interface{}{
 			"created_at": payload.CreatedAt.AsTime(),
 			"vin":        payload.Vin,
@@ -59,6 +62,7 @@ func (p *Producer) processVehicleErrors(rec *telemetry.Record, payload *protos.V
 func (p *Producer) processVehicleConnectivity(rec *telemetry.Record, payload *protos.VehicleConnectivity) ([]pahomqtt.Token, error) {
 	return p.process(rec, //
 		"connectivity", //
+		true,
 		map[string]interface{}{
 			"vin":               payload.Vin,
 			"connection_id":     payload.GetConnectionId(),

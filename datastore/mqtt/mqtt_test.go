@@ -154,7 +154,7 @@ var _ = Describe("MQTTProducer", func() {
 			Password:  "testpass",
 			TopicBase: "test/topic",
 			QoS:       1,
-			Retained:  false,
+			Retained:  []string{},
 		}
 
 		serializer = telemetry.NewBinarySerializer(
