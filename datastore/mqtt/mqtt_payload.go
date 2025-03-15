@@ -3,7 +3,6 @@ package mqtt
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -22,19 +21,14 @@ func (p *Producer) process(rec *telemetry.Record, topLevel string, retain bool, 
 }
 
 func (p *Producer) processVehicleFields(rec *telemetry.Record, payload *protos.Payload) ([]pahomqtt.Token, error) {
-	var tokens []pahomqtt.Token
-	convertedPayload := p.payloadToMap(payload)
-	for key, value := range convertedPayload {
-		mqttTopicName := fmt.Sprintf("%s/%s/v/%s", p.config.TopicBase, rec.Vin, key)
-		jsonValue, err := json.Marshal(value)
-		if err != nil {
-			return tokens, fmt.Errorf("failed to marshal JSON for MQTT topic %s: %v", mqttTopicName, err)
-		}
-		token := p.client.Publish(mqttTopicName, p.config.QoS, slices.Contains(p.config.Retained, key), jsonValue)
-		tokens = append(tokens, token)
-		p.updateMetrics(rec.TxType, len(jsonValue))
-	}
-	return tokens, nil
+	return p.process(rec, //
+		"v", //
+		false,
+		map[string]interface{}{
+			"created_at": payload.CreatedAt.AsTime(),
+			"vin":        payload.Vin,
+			"data":       p.dataToMqtt(payload.Data),
+		})
 }
 
 func (p *Producer) processVehicleAlerts(rec *telemetry.Record, payload *protos.VehicleAlerts) ([]pahomqtt.Token, error) {
@@ -122,14 +116,11 @@ type Datum struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-// PayloadToMap transforms a Payload into a map for mqtt purposes
-func (p *Producer) payloadToMap(payload *protos.Payload) map[string]interface{} {
-	convertedPayload := make(map[string]interface{}, len(payload.Data))
-	for _, datum := range payload.Data {
-		convertedPayload[datum.Key.String()] = map[string]interface{}{
-			"created_at": payload.CreatedAt.AsTime(),
-			"value":      datum.Value.Value,
-		}
+func (p *Producer) dataToMqtt(data []*protos.Datum) []Datum {
+	result := make([]Datum, len(data))
+	for i, d := range data {
+		result[i].Key = d.Key.String()
+		result[i].Value = d.Value.Value
 	}
-	return convertedPayload
+	return result
 }
