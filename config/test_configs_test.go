@@ -15,7 +15,7 @@ const TestConfig = `{
 		"client_id": "client-1",
 		"topic_base": "telemetry",
 		"qos": 1,
-		"retained": [],
+		"retained": false,
 		"connect_timeout_ms": 30000,
 		"publish_timeout_ms": 1000 
 	},
@@ -51,7 +51,7 @@ const TestSmallConfig = `
 		"client_id": "client-1",
 		"topic_base": "telemetry",
 		"qos": 1,
-		"retained": [],
+		"retained": false,
 		"connect_timeout_ms": 30000,
 		"publish_timeout_ms": 1000
 	},
