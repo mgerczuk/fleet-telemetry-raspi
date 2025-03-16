@@ -2,7 +2,6 @@ package mqtt_test
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -247,41 +246,17 @@ var _ = Describe("MQTTProducer", func() {
 
 			topic := "test/topic/TEST123/v"
 
-			jsonValue, _ := json.Marshal(map[string]interface{}{
-				"created_at": createdAt.AsTime(),
-				"vin":        "TEST123",
-				"data": []mqtt.Datum{
-					{
-						Key: "VehicleName",
-						Value: map[string]interface{}{
-							"StringValue": "My Tesla",
-						},
-					},
-					{
-						Key: "TimeToFullCharge",
-						Value: map[string]interface{}{
-							"Invalid": true,
-						},
-					},
-					{
-						Key: "Location",
-						Value: map[string]interface{}{
-							"LocationValue": map[string]interface{}{
-								"latitude":  37.7749,
-								"longitude": -122.4194,
-							}},
-					},
-					{
-						Key: "BatteryLevel",
-						Value: map[string]interface{}{
-							"FloatValue": 75.5,
-						},
-					},
-				},
-			})
+			jsonValue := `{"data":[` +
+				`{"key":"VehicleName","value":{"stringValue":"My Tesla"}},` +
+				`{"key":"TimeToFullCharge","value":{"invalid":true}},` +
+				`{"key":"Location","value":{"locationValue":{"latitude":37.7749,"longitude":-122.4194}}},` +
+				`{"key":"BatteryLevel","value":{"floatValue":75.5}}` +
+				`],` +
+				`"createdAt":"` + createdAt.AsTime().Format(time.RFC3339Nano) + `",` +
+				`"vin":"TEST123"}`
 
 			Expect(publishedTopics).To(HaveKey(topic))
-			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+			Expect(string(publishedTopics[topic])).To(Equal(jsonValue))
 		})
 
 		It("should publish MQTT messages for vehicle alerts", func() {
@@ -343,31 +318,15 @@ var _ = Describe("MQTTProducer", func() {
 
 			createdAtAsTime := createdAt.AsTime()
 
-			jsonValue, _ := json.Marshal(map[string]interface{}{
-				"alerts": []mqtt.VehicleAlert{
-					{
-						Name: "TestAlert1",
-						Audiences: []protos.Audience{
-							1,
-							2,
-						},
-						StartedAt: &createdAtAsTime,
-					},
-					{
-						Name: "TestAlert2",
-						Audiences: []protos.Audience{
-							3,
-						},
-						StartedAt: &createdAtAsTime,
-						EndedAt:   &createdAtAsTime,
-					},
-				},
-				"created_at": createdAtAsTime,
-				"vin":        "TEST123",
-			})
+			jsonValue := `{"alerts":[` +
+				`{"name":"TestAlert1","audiences":["Customer","Service"],"startedAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `"},` +
+				`{"name":"TestAlert2","audiences":["ServiceFix"],"startedAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `","endedAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `"}` +
+				`],` +
+				`"createdAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `",` +
+				`"vin":"TEST123"}`
 
 			Expect(publishedTopics).To(HaveKey(topic))
-			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+			Expect(string(publishedTopics[topic])).To(Equal(jsonValue))
 		})
 
 		It("should publish MQTT messages for vehicle errors", func() {
@@ -427,32 +386,15 @@ var _ = Describe("MQTTProducer", func() {
 
 			createdAtAsTime := createdAt.AsTime()
 
-			jsonValue, _ := json.Marshal(map[string]interface{}{
-				"created_at": createdAtAsTime,
-				"errors": []mqtt.VehicleError{
-					{
-						Body:      "This is a test error",
-						CreatedAt: &createdAtAsTime,
-						Name:      "TestError1",
-						Tags: map[string]string{
-							"tag1": "value1",
-							"tag2": "value2",
-						},
-					},
-					{
-						Body:      "This is another test error",
-						CreatedAt: &createdAtAsTime,
-						Name:      "TestError2",
-						Tags: map[string]string{
-							"tagA": "valueA",
-						},
-					},
-				},
-				"vin": "TEST123",
-			})
+			jsonValue := `{"errors":[` +
+				`{"createdAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `","name":"TestError1","tags":{"tag1":"value1","tag2":"value2"},"body":"This is a test error"},` +
+				`{"createdAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `","name":"TestError2","tags":{"tagA":"valueA"},"body":"This is another test error"}` +
+				`],` +
+				`"createdAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `",` +
+				`"vin":"TEST123"}`
 
 			Expect(publishedTopics).To(HaveKey(topic))
-			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+			Expect(string(publishedTopics[topic])).To(Equal(jsonValue))
 		})
 
 		It("should publish MQTT messages for vehicle connectivity", func() {
@@ -501,16 +443,13 @@ var _ = Describe("MQTTProducer", func() {
 
 			createdAtAsTime := createdAt.AsTime()
 
-			jsonValue, _ := json.Marshal(map[string]interface{}{
-				"connection_id":     "connid",
-				"created_at":        createdAtAsTime,
-				"network_interface": "xyz",
-				"status":            "DISCONNECTED",
-				"vin":               "TEST123",
-			})
+			jsonValue := `{"vin":"TEST123","connectionId":"connid",` +
+				`"status":"DISCONNECTED",` +
+				`"createdAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `",` +
+				`"networkInterface":"xyz"}`
 
 			Expect(publishedTopics).To(HaveKey(topic))
-			Expect(publishedTopics[topic]).To(Equal(jsonValue))
+			Expect(string(publishedTopics[topic])).To(Equal(jsonValue))
 		})
 
 		It("should handle timeouts when publishing MQTT messages", func() {

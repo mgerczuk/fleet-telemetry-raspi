@@ -146,15 +146,15 @@ func (p *Producer) Produce(rec *telemetry.Record) {
 	var tokens []pahomqtt.Token
 	var err error
 
-	switch payload := payload.(type) {
+	switch payload.(type) {
 	case *protos.Payload:
-		tokens, err = p.processVehicleFields(rec, payload)
+		tokens, err = p.processVehicleFields(rec)
 	case *protos.VehicleAlerts:
-		tokens, err = p.processVehicleAlerts(rec, payload)
+		tokens, err = p.processVehicleAlerts(rec)
 	case *protos.VehicleErrors:
-		tokens, err = p.processVehicleErrors(rec, payload)
+		tokens, err = p.processVehicleErrors(rec)
 	case *protos.VehicleConnectivity:
-		tokens, err = p.processVehicleConnectivity(rec, payload)
+		tokens, err = p.processVehicleConnectivity(rec)
 	default:
 		p.ReportError("mqtt_unknown_payload_type", nil, p.createLogInfo(rec))
 		return
