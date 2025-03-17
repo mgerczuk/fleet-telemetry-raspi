@@ -1,13 +1,13 @@
 [Unit]
-Description=Tesla Fleet Telemetry Server Configuration
+Description=Tesla Fleet Telemetry Server
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/fleet-telemetry -config /etc/fleet-telemetry/config.json
 Restart=always
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=fleet-telemetry-config
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fleet-telemetry
 
 DynamicUser=yes
 RestrictSUIDSGID=yes

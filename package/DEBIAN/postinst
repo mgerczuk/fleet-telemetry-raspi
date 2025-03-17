@@ -31,7 +31,7 @@ if [ ! -s "$CONFIG_FILE" ]; then
     "client_id": "tesla-client",
     "topic_base": "tesla-telemetry",
     "qos": 1,
-    "retained": ["Gear", "ChargeState", "FastChargerPresent"],
+    "retained": false,
     "connect_timeout_ms": 30000,
     "publish_timeout_ms": 1000
   },
