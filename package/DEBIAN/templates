@@ -1,0 +1,16 @@
+Template: fleet-telemetry/server_host
+Type: string
+Default: my-domain.com
+Description: Enter Fleet Telemetry server hostname
+
+Template: fleet-telemetry/server_port
+Type: string
+Default: 4443
+Description: Enter Fleet Telemetry server port
+ Enter Fleet Telemetry server port. This must be accessible from the outside
+
+Template: fleet-telemetry/mqtt_server
+Type: string
+Default: localhost:1883
+Description: Address and port of MQTT broker
+ Enter address and port of MQTT broker separated by ':' (colon). The port is usually 1883 for unencrypted connection and 8883 for connection over SSL/TLS

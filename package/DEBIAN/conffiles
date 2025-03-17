@@ -1,0 +1,2 @@
+/etc/fleet-telemetry/config.json
+/etc/systemd/system/fleet-telemetry.service.d/override.conf

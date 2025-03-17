@@ -1,0 +1,69 @@
+#!/bin/bash
+set -e
+. /usr/share/debconf/confmodule
+
+CONFIG_FILE="/etc/fleet-telemetry/config.json"
+OVERRIDE_FILE="/etc/systemd/system/fleet-telemetry.service.d/override.conf"
+
+# Only if not yet existing or empty
+if [ ! -s "$CONFIG_FILE" ]; then
+
+    db_get fleet-telemetry/server_host
+    SERVER_HOST="$RET"
+
+    db_get fleet-telemetry/server_port
+    SERVER_PORT="$RET"
+
+    db_get fleet-telemetry/mqtt_server
+    MQTT_SERVER="$RET"
+
+    mkdir -p /etc/fleet-telemetry
+    cat <<EOF > "$CONFIG_FILE"
+{
+  "host": "",
+  "port": $SERVER_PORT,
+  "log_level": "info",
+  "logger": {
+    "verbose": true
+  },
+  "mqtt": {
+    "broker": "$MQTT_SERVER",
+    "client_id": "tesla-client",
+    "topic_base": "tesla-telemetry",
+    "qos": 1,
+    "retained": ["Gear", "ChargeState", "FastChargerPresent"],
+    "connect_timeout_ms": 30000,
+    "publish_timeout_ms": 1000
+  },
+  "records": {
+    "alerts": ["mqtt"],
+    "errors": ["mqtt"],
+    "V": ["mqtt"],
+    "connectivity": ["mqtt"]
+  },
+  "tls": {
+    "server_cert": "/run/credentials/fleet-telemetry.service/fullchain.pem",
+    "server_key": "/run/credentials/fleet-telemetry.service/privkey.pem"
+  }
+}
+EOF
+    echo "Config file created: $CONFIG_FILE"
+
+    # replace Let's Encrypt path
+    mkdir -p $(dirname "${OVERRIDE_FILE}")
+    cat <<EOF > "$OVERRIDE_FILE"
+[Service]
+LoadCredential=privkey.pem:/etc/letsencrypt/live/$SERVER_HOST/privkey.pem
+LoadCredential=fullchain.pem:/etc/letsencrypt/live/$SERVER_HOST/fullchain.pem
+EOF
+    echo "Override file created: /etc/systemd/system/fleet-telemetry.service.d/override.conf"
+
+fi
+
+# Start service
+if [ "$1" = "configure" ]; then
+    systemctl daemon-reload
+    systemctl enable fleet-telemetry.service
+    systemctl restart fleet-telemetry.service
+fi
+

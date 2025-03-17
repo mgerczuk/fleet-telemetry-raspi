@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+. /usr/share/debconf/confmodule
+
+db_input high fleet-telemetry/server_host || true
+db_input high fleet-telemetry/server_port || true
+db_input high fleet-telemetry/mqtt_server || true
+
+db_go || true

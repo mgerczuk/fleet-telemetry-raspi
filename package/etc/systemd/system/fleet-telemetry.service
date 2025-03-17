@@ -1,0 +1,33 @@
+[Unit]
+Description=Tesla Fleet Telemetry Server Configuration
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/fleet-telemetry -config /etc/fleet-telemetry/config.json
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=fleet-telemetry-config
+
+DynamicUser=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+ProtectControlGroups=true
+ProtectSystem=strict
+PrivateTmp=true
+RestrictNamespaces=true
+#SystemCallFilter=~@clock @debug @module @mount @obsolete @privileged @raw-io @reboot @resources @swap
+PrivateUsers=true
+NoNewPrivileges=true
+ProtectClock=true
+ProtectKernelLogs=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+ProtectProc=invisible
+ProtectHome=true
+ProtectKernelModules=true
+PrivateDevices=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

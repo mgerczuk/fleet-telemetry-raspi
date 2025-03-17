@@ -1,0 +1,48 @@
+APP_NAME := fleet-telemetry
+ARCHS := amd64 arm
+
+GITVERSION := $(shell git describe --tags --long)
+VERSION := $(shell echo $(GITVERSION) | sed -E 's/v([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)-g.*/\1.\2/')
+ARCH := $(shell dpkg --print-architecture)
+
+BUILD_DIR := build
+DEB_DIR := $(BUILD_DIR)/deb
+
+# Standard GO Einstellungen
+export GO111MODULE = on
+
+# Cross-Compilation Flags
+LDFLAGS := -s -w
+
+.PHONY: clean build package
+
+all: clean build package
+
+build:
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building for $(ARCH)..."
+	@CGO_ENABLED=1 GOOS=linux go build -o $(BUILD_DIR)/$(APP_NAME)_$(ARCH) -ldflags "$(LDFLAGS) -X main.version=$(GITVERSION)" cmd/main.go 
+
+package: build
+	@if [ "$(ARCH)" = "arm" ]; then \
+		deb_arch="armhf"; \
+	else \
+		deb_arch="$(ARCH)"; \
+	fi; \
+	echo "Creating DEB package for $(ARCH) (DEB arch: $$deb_arch)..."; \
+	mkdir -p $(DEB_DIR)/DEBIAN; \
+	mkdir -p $(DEB_DIR)/usr/bin; \
+	cp $(BUILD_DIR)/$(APP_NAME)_$(ARCH) $(DEB_DIR)/usr/bin/$(APP_NAME); \
+	chmod 755 $(DEB_DIR)/usr/bin/$(APP_NAME); \
+	cp -r package/* $(DEB_DIR)/; \
+	echo "Version: $(VERSION)" >> $(DEB_DIR)/DEBIAN/control; \
+	echo "Architecture: $$deb_arch" >> $(DEB_DIR)/DEBIAN/control
+	@chmod 755 $(DEB_DIR)/DEBIAN/config
+	@chmod 755 $(DEB_DIR)/DEBIAN/postinst
+	@chmod 755 $(DEB_DIR)/DEBIAN/prerm
+	@chmod 755 $(DEB_DIR)/DEBIAN/postrm
+	@fakeroot dpkg-deb --build $(DEB_DIR) $(BUILD_DIR)/$(APP_NAME)_$(VERSION)_$(ARCH).deb
+	echo rm -rf $(DEB_DIR)
+
+clean:
+	@rm -rf $(BUILD_DIR)
