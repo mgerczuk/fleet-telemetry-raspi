@@ -1,0 +1,42 @@
+name: Build Debian Installer Package
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23.6'
+
+    - name: Install needed Tools
+      uses: ConorMacBride/install-package@v1
+      with:
+        apt: fakeroot
+          
+    - name: Install Dependencies
+      run: go mod tidy
+
+    - name: Build with Makefile
+      run: make -f Makefile.package package
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Binaries and Deb Files
+        path: build/

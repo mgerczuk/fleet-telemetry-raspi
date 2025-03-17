@@ -42,7 +42,7 @@ package: build
 	@chmod 755 $(DEB_DIR)/DEBIAN/prerm
 	@chmod 755 $(DEB_DIR)/DEBIAN/postrm
 	@fakeroot dpkg-deb --build $(DEB_DIR) $(BUILD_DIR)/$(APP_NAME)_$(VERSION)_$(ARCH).deb
-	echo rm -rf $(DEB_DIR)
+	@rm -rf $(DEB_DIR)
 
 clean:
 	@rm -rf $(BUILD_DIR)

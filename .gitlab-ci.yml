@@ -1,0 +1,17 @@
+image: golang:1.23.4
+
+stages:
+ - build
+
+build-job:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+  stage: build
+  before_script:
+    - apt-get update -y -qq
+    - apt-get install fakeroot -y
+  script:
+    - make -f Makefile.package package
+  artifacts:
+    paths:
+      - build/*.deb

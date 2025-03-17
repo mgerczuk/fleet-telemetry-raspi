@@ -14,8 +14,12 @@ import (
 	"github.com/teslamotors/fleet-telemetry/server/streaming"
 )
 
+var version = "local build"
+
 func main() {
 	var err error
+
+	fmt.Printf("fleet-telemetry version %s\n", version)
 
 	config, logger, err := config.LoadApplicationConfiguration()
 	if err != nil {
