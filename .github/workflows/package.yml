@@ -3,10 +3,10 @@ name: Build Debian Installer Package
 on:
   push:
     branches:
-      - main
+      - main-raspi
   pull_request:
     branches:
-      - main
+      - main-raspi
 
 jobs:
   build:
