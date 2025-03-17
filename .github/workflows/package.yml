@@ -27,7 +27,7 @@ jobs:
     - name: Install needed Tools
       uses: ConorMacBride/install-package@v1
       with:
-        apt: fakeroot
+        apt: fakeroot libzmq3-dev
           
     - name: Install Dependencies
       run: go mod tidy
