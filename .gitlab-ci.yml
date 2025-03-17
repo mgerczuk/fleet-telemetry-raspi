@@ -9,7 +9,7 @@ build-job:
   stage: build
   before_script:
     - apt-get update -y -qq
-    - apt-get install fakeroot libzmq -y
+    - apt-get install fakeroot libzmq3-dev -y
   script:
     - make -f Makefile.package package
   artifacts:
