@@ -2,6 +2,7 @@ package mqtt_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -393,6 +394,8 @@ var _ = Describe("MQTTProducer", func() {
 				`"createdAt":"` + createdAtAsTime.Format(time.RFC3339Nano) + `",` +
 				`"vin":"TEST123"}`
 
+			fmt.Println(string(publishedTopics[topic]))
+			fmt.Println(jsonValue)
 			Expect(publishedTopics).To(HaveKey(topic))
 			Expect(string(publishedTopics[topic])).To(Equal(jsonValue))
 		})

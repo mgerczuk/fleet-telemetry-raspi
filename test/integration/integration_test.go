@@ -34,7 +34,7 @@ const (
 	zmqAddr     = "tcp://app:5284"
 	mqttBroker  = "mqtt:1883"
 	mqttTopic   = "telemetry/device-1/v/VehicleName"
-	kinesisHost = "http://kinesis:4567"
+	kinesisHost = "http://kinesis:4566"
 
 	kinesisStreamName             = "test_V"
 	kinesisConnectivityStreamName = "test_connectivity"
@@ -319,6 +319,7 @@ func VerifyConnectivityMessageHeaders(headers map[string]string) {
 	Expect(headers["txid"]).NotTo(BeEmpty())
 	Expect(headers["txtype"]).To(Equal("connectivity"))
 	Expect(headers["vin"]).To(Equal(deviceID))
+	Expect(headers["device_client_version"]).To(Equal(deviceClientVersion))
 }
 
 // VerifyMessageHeaders validates headers returned from dispatchers
@@ -326,6 +327,7 @@ func VerifyMessageHeaders(headers map[string]string) {
 	Expect(headers["txid"]).To(Equal("integration-test-txid"))
 	Expect(headers["txtype"]).To(Equal("V"))
 	Expect(headers["vin"]).To(Equal(deviceID))
+	Expect(headers["device_client_version"]).To(Equal(deviceClientVersion))
 }
 
 // VerifyConnectivityMessageBody validates record message returned from dispatchers
